@@ -1,0 +1,565 @@
+
+--========================================================--
+--              KALEB SHADERS X V3
+--          CINEMATIC REALISM EDITION
+--========================================================--
+
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local Terrain = workspace.Terrain
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+--========================================================--
+-- CONFIGURATION
+--========================================================--
+
+local CONFIG = {
+    Enabled = true,
+    WaterEnabled = true,
+    Preset = "GOLDEN HOUR",
+
+    SunIntensity = 0.18,
+    BloomIntensity = 0.24,
+
+    WaterWaveSize = 0.22,
+    WaterWaveSpeed = 12,
+    WaterTransparency = 0.24,
+    WaterReflectance = 0.32,
+
+    FPSCounter = true
+}
+
+local Original = {
+    ClockTime = Lighting.ClockTime,
+    Brightness = Lighting.Brightness,
+    Exposure = Lighting.ExposureCompensation,
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    GlobalShadows = Lighting.GlobalShadows,
+
+    WaterWaveSize = Terrain.WaterWaveSize,
+    WaterWaveSpeed = Terrain.WaterWaveSpeed,
+    WaterTransparency = Terrain.WaterTransparency,
+    WaterReflectance = Terrain.WaterReflectance,
+    WaterColor = Terrain.WaterColor
+}
+
+local Effects = {}
+
+local function GetEffect(name, class)
+    local effect = Lighting:FindFirstChild(name)
+
+    if not effect then
+        effect = Instance.new(class)
+        effect.Name = name
+        effect.Parent = Lighting
+    end
+
+    Effects[name] = effect
+    return effect
+end
+
+local Atmosphere = GetEffect("KalebAtmosphere", "Atmosphere")
+local Rays = GetEffect("KalebSunRays", "SunRaysEffect")
+local Bloom = GetEffect("KalebBloom", "BloomEffect")
+local Color = GetEffect("KalebColor", "ColorCorrectionEffect")
+local Depth = GetEffect("KalebDepth", "DepthOfFieldEffect")
+
+--========================================================--
+-- PRESETS
+--========================================================--
+
+local Presets = {
+    ["GOLDEN HOUR"] = {
+        Time = 17.35,
+        Brightness = 2.1,
+        Exposure = -0.12,
+        Density = 0.24,
+        Haze = 1.15,
+        Glare = 0.22,
+        Contrast = 0.08,
+        Saturation = 0.06,
+        Tint = Color3.fromRGB(255, 242, 228)
+    },
+
+    ["CINEMATIC"] = {
+        Time = 17.15,
+        Brightness = 1.9,
+        Exposure = -0.18,
+        Density = 0.28,
+        Haze = 1.4,
+        Glare = 0.15,
+        Contrast = 0.12,
+        Saturation = 0.04,
+        Tint = Color3.fromRGB(255, 235, 220)
+    },
+
+    ["SUNSET"] = {
+        Time = 18.0,
+        Brightness = 1.7,
+        Exposure = -0.25,
+        Density = 0.32,
+        Haze = 1.8,
+        Glare = 0.28,
+        Contrast = 0.1,
+        Saturation = 0.12,
+        Tint = Color3.fromRGB(255, 220, 190)
+    },
+
+    ["NATURAL"] = {
+        Time = 15.0,
+        Brightness = 2.2,
+        Exposure = 0,
+        Density = 0.18,
+        Haze = 0.6,
+        Glare = 0.05,
+        Contrast = 0.04,
+        Saturation = 0.02,
+        Tint = Color3.fromRGB(255, 255, 255)
+    }
+}
+
+--========================================================--
+-- APPLY LIGHTING
+--========================================================--
+
+local function ApplyLighting()
+    if not CONFIG.Enabled then return end
+
+    local preset = Presets[CONFIG.Preset]
+    if not preset then return end
+
+    Lighting.GlobalShadows = true
+    Lighting.Technology = Enum.Technology.Future
+
+    Lighting.ClockTime = preset.Time
+    Lighting.Brightness = preset.Brightness
+    Lighting.ExposureCompensation = preset.Exposure
+
+    Lighting.EnvironmentDiffuseScale = 0.5
+    Lighting.EnvironmentSpecularScale = 0.7
+
+    Lighting.Ambient = Color3.fromRGB(115, 105, 120)
+    Lighting.OutdoorAmbient = Color3.fromRGB(155, 145, 140)
+
+    Atmosphere.Density = preset.Density
+    Atmosphere.Offset = 0.15
+    Atmosphere.Color = Color3.fromRGB(255, 220, 185)
+    Atmosphere.Decay = Color3.fromRGB(130, 105, 150)
+    Atmosphere.Glare = preset.Glare
+    Atmosphere.Haze = preset.Haze
+
+    Rays.Intensity = CONFIG.SunIntensity
+    Rays.Spread = 0.78
+
+    Bloom.Intensity = CONFIG.BloomIntensity
+    Bloom.Size = 28
+    Bloom.Threshold = 1.15
+
+    Color.Brightness = 0.015
+    Color.Contrast = preset.Contrast
+    Color.Saturation = preset.Saturation
+    Color.TintColor = preset.Tint
+
+    Depth.Enabled = false
+    Depth.FocusDistance = 50
+    Depth.InFocusRadius = 40
+    Depth.NearIntensity = 0
+    Depth.FarIntensity = 0.08
+end
+
+--========================================================--
+-- WATER SYSTEM
+--========================================================--
+
+local function ApplyWater()
+    if not CONFIG.WaterEnabled then return end
+
+    Terrain.WaterWaveSize = CONFIG.WaterWaveSize
+    Terrain.WaterWaveSpeed = CONFIG.WaterWaveSpeed
+    Terrain.WaterTransparency = CONFIG.WaterTransparency
+    Terrain.WaterReflectance = CONFIG.WaterReflectance
+
+    Terrain.WaterColor = Color3.fromRGB(35, 105, 135)
+end
+
+--========================================================--
+-- GUI
+--========================================================--
+
+local old = PlayerGui:FindFirstChild("KalebShadersX")
+if old then old:Destroy() end
+
+local GUI = Instance.new("ScreenGui")
+GUI.Name = "KalebShadersX"
+GUI.ResetOnSpawn = false
+GUI.IgnoreGuiInset = true
+GUI.Parent = PlayerGui
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.fromOffset(390, 490)
+Main.Position = UDim2.new(0.5, -195, 0.5, -245)
+Main.BackgroundColor3 = Color3.fromRGB(13, 13, 20)
+Main.BorderSizePixel = 0
+Main.Parent = GUI
+
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(130, 70, 255)
+Stroke.Thickness = 1.5
+Stroke.Transparency = 0.2
+Stroke.Parent = Main
+
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1, 0, 0, 75)
+Header.BackgroundColor3 = Color3.fromRGB(23, 18, 35)
+Header.BorderSizePixel = 0
+Header.Parent = Main
+
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 14)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -60, 0, 32)
+Title.Position = UDim2.fromOffset(18, 10)
+Title.BackgroundTransparency = 1
+Title.Text = "KALEB SHADERS X"
+Title.TextColor3 = Color3.fromRGB(195, 155, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 19
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+local Subtitle = Instance.new("TextLabel")
+Subtitle.Size = UDim2.new(1, -35, 0, 20)
+Subtitle.Position = UDim2.fromOffset(18, 43)
+Subtitle.BackgroundTransparency = 1
+Subtitle.Text = "CINEMATIC REALISM  •  V3"
+Subtitle.TextColor3 = Color3.fromRGB(130, 125, 150)
+Subtitle.Font = Enum.Font.Gotham
+Subtitle.TextSize = 10
+Subtitle.TextXAlignment = Enum.TextXAlignment.Left
+Subtitle.Parent = Header
+
+local Minimize = Instance.new("TextButton")
+Minimize.Size = UDim2.fromOffset(32, 32)
+Minimize.Position = UDim2.new(1, -43, 0, 15)
+Minimize.BackgroundColor3 = Color3.fromRGB(40, 30, 60)
+Minimize.Text = "—"
+Minimize.TextColor3 = Color3.fromRGB(220, 200, 255)
+Minimize.Font = Enum.Font.GothamBold
+Minimize.TextSize = 18
+Minimize.Parent = Header
+
+Instance.new("UICorner", Minimize).CornerRadius = UDim.new(0, 8)
+
+local Content = Instance.new("ScrollingFrame")
+Content.Size = UDim2.new(1, -24, 1, -95)
+Content.Position = UDim2.fromOffset(12, 85)
+Content.BackgroundTransparency = 1
+Content.BorderSizePixel = 0
+Content.ScrollBarThickness = 3
+Content.ScrollBarImageColor3 = Color3.fromRGB(130, 70, 255)
+Content.CanvasSize = UDim2.new(0, 0, 0, 0)
+Content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Content.Parent = Main
+
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 9)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Parent = Content
+
+local Padding = Instance.new("UIPadding")
+Padding.PaddingTop = UDim.new(0, 4)
+Padding.PaddingBottom = UDim.new(0, 12)
+Padding.Parent = Content
+
+--========================================================--
+-- COMPONENTS
+--========================================================--
+
+local function Section(text)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 25)
+    label.BackgroundTransparency = 1
+    label.Text = "  " .. text
+    label.TextColor3 = Color3.fromRGB(180, 145, 255)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = Content
+    return label
+end
+
+local function Button(text, callback)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, 0, 0, 39)
+    button.BackgroundColor3 = Color3.fromRGB(25, 23, 35)
+    button.BorderSizePixel = 0
+    button.Text = text
+    button.TextColor3 = Color3.fromRGB(225, 220, 240)
+    button.Font = Enum.Font.GothamMedium
+    button.TextSize = 12
+    button.Parent = Content
+
+    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
+
+    local border = Instance.new("UIStroke")
+    border.Color = Color3.fromRGB(70, 55, 100)
+    border.Transparency = 0.55
+    border.Parent = button
+
+    button.MouseButton1Click:Connect(callback)
+
+    return button
+end
+
+local function Slider(name, min, max, initial, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 57)
+    frame.BackgroundColor3 = Color3.fromRGB(22, 20, 31)
+    frame.BorderSizePixel = 0
+    frame.Parent = Content
+
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -20, 0, 25)
+    label.Position = UDim2.fromOffset(10, 3)
+    label.BackgroundTransparency = 1
+    label.Text = name .. ": " .. tostring(initial)
+    label.TextColor3 = Color3.fromRGB(215, 205, 235)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 11
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(1, -20, 0, 5)
+    bar.Position = UDim2.fromOffset(10, 39)
+    bar.BackgroundColor3 = Color3.fromRGB(55, 45, 70)
+    bar.BorderSizePixel = 0
+    bar.Parent = frame
+
+    Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
+
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new((initial-min)/(max-min), 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(145, 85, 255)
+    fill.BorderSizePixel = 0
+    fill.Parent = bar
+
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.fromOffset(12, 12)
+    knob.AnchorPoint = Vector2.new(0.5, 0.5)
+    knob.Position = UDim2.new(fill.Size.X.Scale, 0, 0.5, 0)
+    knob.BackgroundColor3 = Color3.fromRGB(230, 215, 255)
+    knob.Parent = bar
+
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+    local dragging = false
+
+    local function update(x)
+        local percent = math.clamp(
+            (x - bar.AbsolutePosition.X) / bar.AbsoluteSize.X,
+            0, 1
+        )
+
+        local value = min + (max-min)*percent
+        value = math.floor(value*100)/100
+
+        fill.Size = UDim2.new(percent, 0, 1, 0)
+        knob.Position = UDim2.new(percent, 0, 0.5, 0)
+
+        label.Text = name .. ": " .. value
+        callback(value)
+    end
+
+    bar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            update(input.Position.X)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (
+            input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch
+        ) then
+            update(input.Position.X)
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+--========================================================--
+-- MENU CONTENT
+--========================================================--
+
+Section("LIGHTING PRESETS")
+
+for name in pairs(Presets) do
+    Button("✦  " .. name, function()
+        CONFIG.Preset = name
+        ApplyLighting()
+    end)
+end
+
+Section("SUN & CINEMATIC LIGHT")
+
+Slider("Sun Rays", 0, 0.5, CONFIG.SunIntensity, function(v)
+    CONFIG.SunIntensity = v
+    Rays.Intensity = v
+end)
+
+Slider("Bloom", 0, 1, CONFIG.BloomIntensity, function(v)
+    CONFIG.BloomIntensity = v
+    Bloom.Intensity = v
+end)
+
+Section("WATER • WIND SIMULATION")
+
+Button("🌊  WATER: ON / OFF", function()
+    CONFIG.WaterEnabled = not CONFIG.WaterEnabled
+
+    if CONFIG.WaterEnabled then
+        ApplyWater()
+    else
+        Terrain.WaterWaveSize = 0
+        Terrain.WaterWaveSpeed = 0
+    end
+end)
+
+Slider("Wave Size", 0, 1, CONFIG.WaterWaveSize, function(v)
+    CONFIG.WaterWaveSize = v
+    Terrain.WaterWaveSize = v
+end)
+
+Slider("Wind Speed", 0, 25, CONFIG.WaterWaveSpeed, function(v)
+    CONFIG.WaterWaveSpeed = v
+    Terrain.WaterWaveSpeed = v
+end)
+
+Slider("Water Transparency", 0, 1, CONFIG.WaterTransparency, function(v)
+    CONFIG.WaterTransparency = v
+    Terrain.WaterTransparency = v
+end)
+
+Slider("Water Reflection", 0, 1, CONFIG.WaterReflectance, function(v)
+    CONFIG.WaterReflectance = v
+    Terrain.WaterReflectance = v
+end)
+
+Section("SYSTEM")
+
+Button("⚡  ENABLE / DISABLE SHADERS", function()
+    CONFIG.Enabled = not CONFIG.Enabled
+
+    if CONFIG.Enabled then
+        ApplyLighting()
+    else
+        for _, effect in pairs(Effects) do
+            effect.Enabled = false
+        end
+    end
+end)
+
+Button("↺  RESTORE ORIGINAL SETTINGS", function()
+    Lighting.ClockTime = Original.ClockTime
+    Lighting.Brightness = Original.Brightness
+    Lighting.ExposureCompensation = Original.Exposure
+    Lighting.Ambient = Original.Ambient
+    Lighting.OutdoorAmbient = Original.OutdoorAmbient
+    Lighting.GlobalShadows = Original.GlobalShadows
+
+    Terrain.WaterWaveSize = Original.WaterWaveSize
+    Terrain.WaterWaveSpeed = Original.WaterWaveSpeed
+    Terrain.WaterTransparency = Original.WaterTransparency
+    Terrain.WaterReflectance = Original.WaterReflectance
+    Terrain.WaterColor = Original.WaterColor
+
+    for _, effect in pairs(Effects) do
+        effect:Destroy()
+    end
+
+    GUI:Destroy()
+end)
+
+--========================================================--
+-- DRAG SYSTEM
+--========================================================--
+
+local dragging = false
+local dragStart
+local startPosition
+
+Header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        dragging = true
+        dragStart = input.Position
+        startPosition = Main.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (
+        input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch
+    ) then
+
+        local delta = input.Position - dragStart
+
+        Main.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+local minimized = false
+
+Minimize.MouseButton1Click:Connect(function()
+    minimized = not minimized
+
+    Content.Visible = not minimized
+    Main.Size = minimized
+        and UDim2.fromOffset(390, 75)
+        or UDim2.fromOffset(390, 490)
+
+    Minimize.Text = minimized and "+" or "—"
+end)
+
+--========================================================--
+-- INITIALIZE
+--========================================================--
+
+ApplyLighting()
+ApplyWater()
+
+print("KALEB SHADERS X V3 INITIALIZED")
