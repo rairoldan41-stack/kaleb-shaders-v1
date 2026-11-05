@@ -1,565 +1,2528 @@
+--!strict
+--[[
+    KALEB SHADERS ULTRA
+    LocalScript -> StarterPlayer > StarterPlayerScripts
 
---========================================================--
---              KALEB SHADERS X V3
---          CINEMATIC REALISM EDITION
---========================================================--
+    CONTROLES
+    - B: abre/fecha o menu.
+    - Arraste o cabeçalho para mover.
+    - Clique nas categorias para expandir/recolher.
+
+    RECURSOS
+    - Sol visual configurável, independente do disco solar nativo.
+    - Halo e raios solares visuais.
+    - SunRaysEffect, Bloom, ColorCorrection, Atmosphere e DepthOfField.
+    - Água nativa do Terrain completamente configurável.
+    - Superfície oceânica personalizada com ondas Gerstner.
+    - Espuma nas cristas, reflexos especulares e transparência.
+    - Vento global, rajadas e animação de objetos.
+    - Presets completos e controles individuais.
+    - Botão para restaurar a configuração original.
+
+    TAGS OPCIONAIS NO TAG EDITOR
+    - KalebOcean: peças que formam a superfície do oceano personalizado.
+    - KalebWind: folhas, plantas ou tecidos que devem balançar.
+
+    RECOMENDAÇÃO PARA KalebOcean
+    - Anchored = true
+    - CanCollide = false
+    - Material = SmoothPlastic ou Glass
+    - Divida o oceano em várias peças, em vez de usar uma única peça enorme.
+
+    LIMITAÇÃO DO ROBLOX
+    Roblox não permite GLSL/HLSL customizado. A água avançada abaixo usa
+    recursos nativos, objetos visuais e deformação local de peças marcadas.
+]]
 
 local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
-local Terrain = workspace.Terrain
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local CollectionService = game:GetService("CollectionService")
+local Workspace = game:GetService("Workspace")
 
-local Player = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local terrain = Workspace.Terrain
 
---========================================================--
--- CONFIGURATION
---========================================================--
+--==============================================================
+-- CONFIGURAÇÃO
+--==============================================================
 
 local CONFIG = {
-    Enabled = true,
-    WaterEnabled = true,
-    Preset = "GOLDEN HOUR",
+    Name = "Kaleb Shaders Ultra",
+    ToggleKey = Enum.KeyCode.B,
 
-    SunIntensity = 0.18,
-    BloomIntensity = 0.24,
+    Theme = {
+        Background = Color3.fromRGB(12, 14, 21),
+        Panel = Color3.fromRGB(23, 26, 37),
+        PanelHover = Color3.fromRGB(33, 38, 53),
+        Accent = Color3.fromRGB(79, 112, 255),
+        Accent2 = Color3.fromRGB(55, 213, 255),
+        Text = Color3.fromRGB(244, 246, 255),
+        Muted = Color3.fromRGB(145, 153, 179),
+        Disabled = Color3.fromRGB(58, 64, 80),
+        Danger = Color3.fromRGB(237, 82, 104),
+    },
 
-    WaterWaveSize = 0.22,
-    WaterWaveSpeed = 12,
-    WaterTransparency = 0.24,
-    WaterReflectance = 0.32,
+    Defaults = {
+        MasterEnabled = true,
 
-    FPSCounter = true
+        -- Iluminação
+        Brightness = 2.45,
+        Exposure = 0,
+        ClockTime = 16.5,
+        GeographicLatitude = 32,
+        ShadowSoftness = 0.35,
+        EnvironmentDiffuse = 0.38,
+        EnvironmentSpecular = 0.85,
+
+        -- Correção de cor
+        ColorBrightness = 0,
+        Contrast = 0.14,
+        Saturation = -0.04,
+        Tint = Color3.fromRGB(249, 240, 225),
+
+        -- Bloom
+        BloomEnabled = true,
+        BloomIntensity = 0.3,
+        BloomSize = 36,
+        BloomThreshold = 0.95,
+
+        -- Atmosfera
+        AtmosphereEnabled = true,
+        AtmosphereDensity = 0.28,
+        AtmosphereOffset = 0.05,
+        AtmosphereHaze = 1.05,
+        AtmosphereGlare = 0.18,
+        AtmosphereColor = Color3.fromRGB(193, 209, 231),
+        AtmosphereDecay = Color3.fromRGB(82, 94, 116),
+
+        -- Sol visual
+        VisualSunEnabled = true,
+        NativeSunEnabled = true,
+        SunSize = 135,
+        SunOpacity = 0.95,
+        SunCoreBrightness = 1,
+        SunHaloSize = 2.8,
+        SunHaloOpacity = 0.48,
+        SunColor = Color3.fromRGB(255, 239, 194),
+        SunEdgeColor = Color3.fromRGB(255, 177, 92),
+
+        -- Raios
+        SunRaysEnabled = true,
+        SunRaysIntensity = 0.16,
+        SunRaysSpread = 0.88,
+        ScreenRaysEnabled = true,
+        ScreenRaysOpacity = 0.28,
+        ScreenRaysLength = 1.35,
+        ScreenRaysCount = 12,
+        ScreenRaysRotationSpeed = 0.5,
+        LensFlareEnabled = true,
+        LensFlareIntensity = 0.55,
+
+        -- Água nativa
+        TerrainWaterEnabled = true,
+        WaterColor = Color3.fromRGB(18, 84, 122),
+        WaterTransparency = 0.18,
+        WaterReflectance = 0.72,
+        WaterWaveSize = 0.3,
+        WaterWaveSpeed = 15,
+
+        -- Oceano personalizado
+        CustomOceanEnabled = true,
+        OceanTransparency = 0.3,
+        OceanReflectivity = 0.72,
+        OceanBaseColor = Color3.fromRGB(16, 103, 145),
+        OceanDeepColor = Color3.fromRGB(5, 35, 67),
+        OceanShallowColor = Color3.fromRGB(47, 174, 188),
+
+        WaveHeight = 0.75,
+        WaveLength = 28,
+        WaveSpeed = 7.5,
+        WaveSteepness = 0.52,
+        WaveDirection = 35,
+        SecondaryWaveStrength = 0.42,
+        DetailWaveStrength = 0.18,
+        WaveChoppiness = 0.4,
+
+        FoamEnabled = true,
+        FoamThreshold = 0.62,
+        FoamOpacity = 0.62,
+        FoamScale = 2,
+        FoamSpeed = 0.35,
+
+        -- Vento
+        WindEnabled = true,
+        WindDirection = 35,
+        WindSpeed = 14,
+        WindVertical = 0.5,
+        WindStrength = 0.65,
+        WindTurbulence = 0.35,
+        GustFrequency = 0.18,
+
+        -- Câmera
+        DepthOfFieldEnabled = false,
+        DOFFarIntensity = 0.08,
+        DOFNearIntensity = 0.03,
+        DOFFocusDistance = 55,
+        DOFInFocusRadius = 38,
+
+        DynamicExposure = true,
+        IndoorExposure = -0.28,
+        OutdoorExposure = 0.18,
+        ExposureAdaptation = 2.6,
+
+        -- Desempenho
+        AnimationDistance = 650,
+        MaxOceanParts = 500,
+        MaxWindParts = 350,
+        UpdateRate = 60,
+    },
+
+    Presets = {
+        Cinematic = {
+            ClockTime = 16.5,
+            Brightness = 2.45,
+            Exposure = 0,
+            Contrast = 0.14,
+            Saturation = -0.04,
+            Tint = Color3.fromRGB(249, 240, 225),
+            BloomIntensity = 0.3,
+            AtmosphereDensity = 0.28,
+            AtmosphereHaze = 1.05,
+            AtmosphereGlare = 0.18,
+            SunColor = Color3.fromRGB(255, 239, 194),
+            WaterColor = Color3.fromRGB(18, 84, 122),
+            OceanBaseColor = Color3.fromRGB(16, 103, 145),
+            WaveHeight = 0.75,
+            WaveSpeed = 7.5,
+            WindSpeed = 14,
+        },
+
+        Tropical = {
+            ClockTime = 13.25,
+            Brightness = 2.8,
+            Exposure = 0.08,
+            Contrast = 0.11,
+            Saturation = 0.2,
+            Tint = Color3.fromRGB(255, 249, 228),
+            BloomIntensity = 0.34,
+            AtmosphereDensity = 0.2,
+            AtmosphereHaze = 0.68,
+            AtmosphereGlare = 0.24,
+            SunColor = Color3.fromRGB(255, 248, 210),
+            WaterColor = Color3.fromRGB(20, 137, 157),
+            OceanBaseColor = Color3.fromRGB(25, 149, 173),
+            WaveHeight = 0.48,
+            WaveSpeed = 6,
+            WindSpeed = 10,
+        },
+
+        Sunset = {
+            ClockTime = 18.25,
+            Brightness = 2.2,
+            Exposure = -0.04,
+            Contrast = 0.2,
+            Saturation = 0.13,
+            Tint = Color3.fromRGB(255, 198, 151),
+            BloomIntensity = 0.46,
+            AtmosphereDensity = 0.32,
+            AtmosphereHaze = 1.42,
+            AtmosphereGlare = 0.34,
+            SunColor = Color3.fromRGB(255, 158, 77),
+            WaterColor = Color3.fromRGB(62, 69, 101),
+            OceanBaseColor = Color3.fromRGB(40, 76, 111),
+            WaveHeight = 0.82,
+            WaveSpeed = 8.5,
+            WindSpeed = 17,
+        },
+
+        Storm = {
+            ClockTime = 15,
+            Brightness = 1.45,
+            Exposure = -0.22,
+            Contrast = 0.25,
+            Saturation = -0.35,
+            Tint = Color3.fromRGB(183, 203, 216),
+            BloomIntensity = 0.12,
+            AtmosphereDensity = 0.48,
+            AtmosphereHaze = 2.15,
+            AtmosphereGlare = 0,
+            SunColor = Color3.fromRGB(190, 208, 213),
+            WaterColor = Color3.fromRGB(12, 43, 61),
+            OceanBaseColor = Color3.fromRGB(11, 49, 68),
+            WaveHeight = 1.55,
+            WaveSpeed = 13,
+            WindSpeed = 30,
+        },
+
+        Night = {
+            ClockTime = 1.3,
+            Brightness = 1.2,
+            Exposure = -0.2,
+            Contrast = 0.22,
+            Saturation = -0.16,
+            Tint = Color3.fromRGB(172, 197, 255),
+            BloomIntensity = 0.44,
+            AtmosphereDensity = 0.35,
+            AtmosphereHaze = 1.55,
+            AtmosphereGlare = 0,
+            SunColor = Color3.fromRGB(173, 196, 255),
+            WaterColor = Color3.fromRGB(8, 27, 61),
+            OceanBaseColor = Color3.fromRGB(7, 39, 76),
+            WaveHeight = 0.58,
+            WaveSpeed = 6.5,
+            WindSpeed = 9,
+        },
+    },
 }
 
-local Original = {
-    ClockTime = Lighting.ClockTime,
-    Brightness = Lighting.Brightness,
-    Exposure = Lighting.ExposureCompensation,
-    Ambient = Lighting.Ambient,
-    OutdoorAmbient = Lighting.OutdoorAmbient,
-    GlobalShadows = Lighting.GlobalShadows,
+local state = table.clone(CONFIG.Defaults)
+local activePreset = "Cinematic"
+local menuOpen = true
+local alive = true
 
-    WaterWaveSize = Terrain.WaterWaveSize,
-    WaterWaveSpeed = Terrain.WaterWaveSpeed,
-    WaterTransparency = Terrain.WaterTransparency,
-    WaterReflectance = Terrain.WaterReflectance,
-    WaterColor = Terrain.WaterColor
+--==============================================================
+-- TIPOS E UTILITÁRIOS
+--==============================================================
+
+type OceanRecord = {
+    BaseCFrame: CFrame,
+    BaseColor: Color3,
+    BaseTransparency: number,
+    Seed: number,
+    Foam: SurfaceGui?,
 }
 
-local Effects = {}
+type WindRecord = {
+    BaseCFrame: CFrame,
+    Seed: number,
+}
 
-local function GetEffect(name, class)
+local oceanParts: { [BasePart]: OceanRecord } = {}
+local windParts: { [BasePart]: WindRecord } = {}
+local connections: { RBXScriptConnection } = {}
+
+local function connect(
+    signal: RBXScriptSignal,
+    callback: (...any) -> ()
+): RBXScriptConnection
+    local connection = signal:Connect(callback)
+    table.insert(connections, connection)
+    return connection
+end
+
+local function new<T>(
+    className: string,
+    properties: { [string]: any }
+): T
+    local object = Instance.new(className)
+
+    for property, value in properties do
+        if property ~= "Parent" then
+            (object :: any)[property] = value
+        end
+    end
+
+    object.Parent = properties.Parent
+    return object :: any
+end
+
+local function round(parent: Instance, radius: number)
+    new("UICorner", {
+        CornerRadius = UDim.new(0, radius),
+        Parent = parent,
+    })
+end
+
+local function outline(
+    parent: Instance,
+    color: Color3,
+    transparency: number
+)
+    new("UIStroke", {
+        Color = color,
+        Transparency = transparency,
+        Thickness = 1,
+        Parent = parent,
+    })
+end
+
+local function animate(
+    object: Instance,
+    properties: { [string]: any },
+    duration: number?
+)
+    TweenService:Create(
+        object,
+        TweenInfo.new(
+            duration or 0.17,
+            Enum.EasingStyle.Quint,
+            Enum.EasingDirection.Out
+        ),
+        properties
+    ):Play()
+end
+
+local function directionFromDegrees(degrees: number): Vector3
+    local angle = math.rad(degrees)
+    return Vector3.new(math.cos(angle), 0, math.sin(angle))
+end
+
+local function getEffect(className: string, name: string): Instance
     local effect = Lighting:FindFirstChild(name)
 
+    if effect and effect.ClassName ~= className then
+        effect:Destroy()
+        effect = nil
+    end
+
     if not effect then
-        effect = Instance.new(class)
+        effect = Instance.new(className)
         effect.Name = name
         effect.Parent = Lighting
     end
 
-    Effects[name] = effect
     return effect
 end
 
-local Atmosphere = GetEffect("KalebAtmosphere", "Atmosphere")
-local Rays = GetEffect("KalebSunRays", "SunRaysEffect")
-local Bloom = GetEffect("KalebBloom", "BloomEffect")
-local Color = GetEffect("KalebColor", "ColorCorrectionEffect")
-local Depth = GetEffect("KalebDepth", "DepthOfFieldEffect")
-
---========================================================--
--- PRESETS
---========================================================--
-
-local Presets = {
-    ["GOLDEN HOUR"] = {
-        Time = 17.35,
-        Brightness = 2.1,
-        Exposure = -0.12,
-        Density = 0.24,
-        Haze = 1.15,
-        Glare = 0.22,
-        Contrast = 0.08,
-        Saturation = 0.06,
-        Tint = Color3.fromRGB(255, 242, 228)
-    },
-
-    ["CINEMATIC"] = {
-        Time = 17.15,
-        Brightness = 1.9,
-        Exposure = -0.18,
-        Density = 0.28,
-        Haze = 1.4,
-        Glare = 0.15,
-        Contrast = 0.12,
-        Saturation = 0.04,
-        Tint = Color3.fromRGB(255, 235, 220)
-    },
-
-    ["SUNSET"] = {
-        Time = 18.0,
-        Brightness = 1.7,
-        Exposure = -0.25,
-        Density = 0.32,
-        Haze = 1.8,
-        Glare = 0.28,
-        Contrast = 0.1,
-        Saturation = 0.12,
-        Tint = Color3.fromRGB(255, 220, 190)
-    },
-
-    ["NATURAL"] = {
-        Time = 15.0,
-        Brightness = 2.2,
-        Exposure = 0,
-        Density = 0.18,
-        Haze = 0.6,
-        Glare = 0.05,
-        Contrast = 0.04,
-        Saturation = 0.02,
-        Tint = Color3.fromRGB(255, 255, 255)
-    }
-}
-
---========================================================--
--- APPLY LIGHTING
---========================================================--
-
-local function ApplyLighting()
-    if not CONFIG.Enabled then return end
-
-    local preset = Presets[CONFIG.Preset]
-    if not preset then return end
-
-    Lighting.GlobalShadows = true
-    Lighting.Technology = Enum.Technology.Future
-
-    Lighting.ClockTime = preset.Time
-    Lighting.Brightness = preset.Brightness
-    Lighting.ExposureCompensation = preset.Exposure
-
-    Lighting.EnvironmentDiffuseScale = 0.5
-    Lighting.EnvironmentSpecularScale = 0.7
-
-    Lighting.Ambient = Color3.fromRGB(115, 105, 120)
-    Lighting.OutdoorAmbient = Color3.fromRGB(155, 145, 140)
-
-    Atmosphere.Density = preset.Density
-    Atmosphere.Offset = 0.15
-    Atmosphere.Color = Color3.fromRGB(255, 220, 185)
-    Atmosphere.Decay = Color3.fromRGB(130, 105, 150)
-    Atmosphere.Glare = preset.Glare
-    Atmosphere.Haze = preset.Haze
-
-    Rays.Intensity = CONFIG.SunIntensity
-    Rays.Spread = 0.78
-
-    Bloom.Intensity = CONFIG.BloomIntensity
-    Bloom.Size = 28
-    Bloom.Threshold = 1.15
-
-    Color.Brightness = 0.015
-    Color.Contrast = preset.Contrast
-    Color.Saturation = preset.Saturation
-    Color.TintColor = preset.Tint
-
-    Depth.Enabled = false
-    Depth.FocusDistance = 50
-    Depth.InFocusRadius = 40
-    Depth.NearIntensity = 0
-    Depth.FarIntensity = 0.08
+local function isTextInputFocused(): boolean
+    return UserInputService:GetFocusedTextBox() ~= nil
 end
 
---========================================================--
--- WATER SYSTEM
---========================================================--
-
-local function ApplyWater()
-    if not CONFIG.WaterEnabled then return end
-
-    Terrain.WaterWaveSize = CONFIG.WaterWaveSize
-    Terrain.WaterWaveSpeed = CONFIG.WaterWaveSpeed
-    Terrain.WaterTransparency = CONFIG.WaterTransparency
-    Terrain.WaterReflectance = CONFIG.WaterReflectance
-
-    Terrain.WaterColor = Color3.fromRGB(35, 105, 135)
-end
-
---========================================================--
--- GUI
---========================================================--
-
-local old = PlayerGui:FindFirstChild("KalebShadersX")
-if old then old:Destroy() end
-
-local GUI = Instance.new("ScreenGui")
-GUI.Name = "KalebShadersX"
-GUI.ResetOnSpawn = false
-GUI.IgnoreGuiInset = true
-GUI.Parent = PlayerGui
-
-local Main = Instance.new("Frame")
-Main.Size = UDim2.fromOffset(390, 490)
-Main.Position = UDim2.new(0.5, -195, 0.5, -245)
-Main.BackgroundColor3 = Color3.fromRGB(13, 13, 20)
-Main.BorderSizePixel = 0
-Main.Parent = GUI
-
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
-
-local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(130, 70, 255)
-Stroke.Thickness = 1.5
-Stroke.Transparency = 0.2
-Stroke.Parent = Main
-
-local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 75)
-Header.BackgroundColor3 = Color3.fromRGB(23, 18, 35)
-Header.BorderSizePixel = 0
-Header.Parent = Main
-
-Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 14)
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -60, 0, 32)
-Title.Position = UDim2.fromOffset(18, 10)
-Title.BackgroundTransparency = 1
-Title.Text = "KALEB SHADERS X"
-Title.TextColor3 = Color3.fromRGB(195, 155, 255)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 19
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = Header
-
-local Subtitle = Instance.new("TextLabel")
-Subtitle.Size = UDim2.new(1, -35, 0, 20)
-Subtitle.Position = UDim2.fromOffset(18, 43)
-Subtitle.BackgroundTransparency = 1
-Subtitle.Text = "CINEMATIC REALISM  •  V3"
-Subtitle.TextColor3 = Color3.fromRGB(130, 125, 150)
-Subtitle.Font = Enum.Font.Gotham
-Subtitle.TextSize = 10
-Subtitle.TextXAlignment = Enum.TextXAlignment.Left
-Subtitle.Parent = Header
-
-local Minimize = Instance.new("TextButton")
-Minimize.Size = UDim2.fromOffset(32, 32)
-Minimize.Position = UDim2.new(1, -43, 0, 15)
-Minimize.BackgroundColor3 = Color3.fromRGB(40, 30, 60)
-Minimize.Text = "—"
-Minimize.TextColor3 = Color3.fromRGB(220, 200, 255)
-Minimize.Font = Enum.Font.GothamBold
-Minimize.TextSize = 18
-Minimize.Parent = Header
-
-Instance.new("UICorner", Minimize).CornerRadius = UDim.new(0, 8)
-
-local Content = Instance.new("ScrollingFrame")
-Content.Size = UDim2.new(1, -24, 1, -95)
-Content.Position = UDim2.fromOffset(12, 85)
-Content.BackgroundTransparency = 1
-Content.BorderSizePixel = 0
-Content.ScrollBarThickness = 3
-Content.ScrollBarImageColor3 = Color3.fromRGB(130, 70, 255)
-Content.CanvasSize = UDim2.new(0, 0, 0, 0)
-Content.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Content.Parent = Main
-
-local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0, 9)
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Parent = Content
-
-local Padding = Instance.new("UIPadding")
-Padding.PaddingTop = UDim.new(0, 4)
-Padding.PaddingBottom = UDim.new(0, 12)
-Padding.Parent = Content
-
---========================================================--
--- COMPONENTS
---========================================================--
-
-local function Section(text)
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 0, 25)
-    label.BackgroundTransparency = 1
-    label.Text = "  " .. text
-    label.TextColor3 = Color3.fromRGB(180, 145, 255)
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 12
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = Content
-    return label
-end
-
-local function Button(text, callback)
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(1, 0, 0, 39)
-    button.BackgroundColor3 = Color3.fromRGB(25, 23, 35)
-    button.BorderSizePixel = 0
-    button.Text = text
-    button.TextColor3 = Color3.fromRGB(225, 220, 240)
-    button.Font = Enum.Font.GothamMedium
-    button.TextSize = 12
-    button.Parent = Content
-
-    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
-
-    local border = Instance.new("UIStroke")
-    border.Color = Color3.fromRGB(70, 55, 100)
-    border.Transparency = 0.55
-    border.Parent = button
-
-    button.MouseButton1Click:Connect(callback)
-
-    return button
-end
-
-local function Slider(name, min, max, initial, callback)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 0, 57)
-    frame.BackgroundColor3 = Color3.fromRGB(22, 20, 31)
-    frame.BorderSizePixel = 0
-    frame.Parent = Content
-
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -20, 0, 25)
-    label.Position = UDim2.fromOffset(10, 3)
-    label.BackgroundTransparency = 1
-    label.Text = name .. ": " .. tostring(initial)
-    label.TextColor3 = Color3.fromRGB(215, 205, 235)
-    label.Font = Enum.Font.Gotham
-    label.TextSize = 11
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = frame
-
-    local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(1, -20, 0, 5)
-    bar.Position = UDim2.fromOffset(10, 39)
-    bar.BackgroundColor3 = Color3.fromRGB(55, 45, 70)
-    bar.BorderSizePixel = 0
-    bar.Parent = frame
-
-    Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
-
-    local fill = Instance.new("Frame")
-    fill.Size = UDim2.new((initial-min)/(max-min), 0, 1, 0)
-    fill.BackgroundColor3 = Color3.fromRGB(145, 85, 255)
-    fill.BorderSizePixel = 0
-    fill.Parent = bar
-
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-
-    local knob = Instance.new("Frame")
-    knob.Size = UDim2.fromOffset(12, 12)
-    knob.AnchorPoint = Vector2.new(0.5, 0.5)
-    knob.Position = UDim2.new(fill.Size.X.Scale, 0, 0.5, 0)
-    knob.BackgroundColor3 = Color3.fromRGB(230, 215, 255)
-    knob.Parent = bar
-
-    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
-
-    local dragging = false
-
-    local function update(x)
-        local percent = math.clamp(
-            (x - bar.AbsolutePosition.X) / bar.AbsoluteSize.X,
-            0, 1
-        )
-
-        local value = min + (max-min)*percent
-        value = math.floor(value*100)/100
-
-        fill.Size = UDim2.new(percent, 0, 1, 0)
-        knob.Position = UDim2.new(percent, 0, 0.5, 0)
-
-        label.Text = name .. ": " .. value
-        callback(value)
+local function distanceToCamera(position: Vector3): number
+    local camera = Workspace.CurrentCamera
+    if not camera then
+        return math.huge
     end
 
-    bar.InputBegan:Connect(function(input)
+    return (camera.CFrame.Position - position).Magnitude
+end
+
+--==============================================================
+-- BACKUP ORIGINAL
+--==============================================================
+
+local original = {
+    Brightness = Lighting.Brightness,
+    ClockTime = Lighting.ClockTime,
+    Exposure = Lighting.ExposureCompensation,
+    GeographicLatitude = Lighting.GeographicLatitude,
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    ShadowSoftness = Lighting.ShadowSoftness,
+    GlobalShadows = Lighting.GlobalShadows,
+    EnvironmentDiffuseScale = Lighting.EnvironmentDiffuseScale,
+    EnvironmentSpecularScale = Lighting.EnvironmentSpecularScale,
+
+    WaterColor = terrain.WaterColor,
+    WaterTransparency = terrain.WaterTransparency,
+    WaterReflectance = terrain.WaterReflectance,
+    WaterWaveSize = terrain.WaterWaveSize,
+    WaterWaveSpeed = terrain.WaterWaveSpeed,
+
+    GlobalWind = Workspace.GlobalWind,
+}
+
+--==============================================================
+-- EFEITOS NATIVOS
+--==============================================================
+
+local colorCorrection = getEffect(
+    "ColorCorrectionEffect",
+    "Kaleb_ColorCorrection"
+) :: ColorCorrectionEffect
+
+local bloom = getEffect(
+    "BloomEffect",
+    "Kaleb_Bloom"
+) :: BloomEffect
+
+local sunRays = getEffect(
+    "SunRaysEffect",
+    "Kaleb_SunRays"
+) :: SunRaysEffect
+
+local atmosphere = getEffect(
+    "Atmosphere",
+    "Kaleb_Atmosphere"
+) :: Atmosphere
+
+local depthOfField = getEffect(
+    "DepthOfFieldEffect",
+    "Kaleb_DepthOfField"
+) :: DepthOfFieldEffect
+
+--==============================================================
+-- SOL VISUAL
+--==============================================================
+
+local oldSunGui = playerGui:FindFirstChild("KalebVisualSun")
+if oldSunGui then
+    oldSunGui:Destroy()
+end
+
+local sunGui = new("ScreenGui", {
+    Name = "KalebVisualSun",
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    DisplayOrder = -10,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    Parent = playerGui,
+}) :: ScreenGui
+
+local sunLayer = new("Frame", {
+    Name = "SunLayer",
+    Size = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    ClipsDescendants = true,
+    Parent = sunGui,
+}) :: Frame
+
+local sunRoot = new("Frame", {
+    Name = "SunRoot",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Size = UDim2.fromOffset(state.SunSize, state.SunSize),
+    BackgroundTransparency = 1,
+    Visible = false,
+    Parent = sunLayer,
+}) :: Frame
+
+local sunHalo = new("Frame", {
+    Name = "Halo",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromScale(state.SunHaloSize, state.SunHaloSize),
+    BackgroundColor3 = state.SunColor,
+    BackgroundTransparency = 1 - state.SunHaloOpacity,
+    BorderSizePixel = 0,
+    Parent = sunRoot,
+}) :: Frame
+round(sunHalo, 999)
+
+local haloGradient = new("UIGradient", {
+    Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.15),
+        NumberSequenceKeypoint.new(0.3, 0.45),
+        NumberSequenceKeypoint.new(0.7, 0.86),
+        NumberSequenceKeypoint.new(1, 1),
+    }),
+    Parent = sunHalo,
+}) :: UIGradient
+
+local sunDisk = new("Frame", {
+    Name = "Disk",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromScale(1, 1),
+    BackgroundColor3 = state.SunColor,
+    BackgroundTransparency = 1 - state.SunOpacity,
+    BorderSizePixel = 0,
+    Parent = sunRoot,
+}) :: Frame
+round(sunDisk, 999)
+
+local diskGradient = new("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 244)),
+        ColorSequenceKeypoint.new(0.55, state.SunColor),
+        ColorSequenceKeypoint.new(1, state.SunEdgeColor),
+    }),
+    Rotation = 45,
+    Parent = sunDisk,
+}) :: UIGradient
+
+local raysRoot = new("Frame", {
+    Name = "ScreenRays",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromScale(6, 6),
+    BackgroundTransparency = 1,
+    Parent = sunRoot,
+}) :: Frame
+
+local rayFrames: { Frame } = {}
+
+local function rebuildScreenRays()
+    for _, ray in rayFrames do
+        ray:Destroy()
+    end
+    table.clear(rayFrames)
+
+    local count = math.clamp(math.floor(state.ScreenRaysCount), 4, 28)
+
+    for index = 1, count do
+        local lengthVariation = 0.65 + ((index * 37) % 100) / 100
+        local widthVariation = 0.35 + ((index * 53) % 100) / 100
+
+        local ray = new("Frame", {
+            Name = `Ray_{index}`,
+            AnchorPoint = Vector2.new(0.5, 1),
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.new(
+                0,
+                6 + 17 * widthVariation,
+                state.ScreenRaysLength * lengthVariation,
+                0
+            ),
+            Rotation = (360 / count) * index,
+            BackgroundColor3 = state.SunColor,
+            BackgroundTransparency = 1 - state.ScreenRaysOpacity,
+            BorderSizePixel = 0,
+            Parent = raysRoot,
+        }) :: Frame
+
+        new("UIGradient", {
+            Rotation = 90,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(0.3, 0.65),
+                NumberSequenceKeypoint.new(0.72, 0.85),
+                NumberSequenceKeypoint.new(1, 1),
+            }),
+            Parent = ray,
+        })
+
+        table.insert(rayFrames, ray)
+    end
+end
+
+local flareRoot = new("Frame", {
+    Name = "LensFlare",
+    Size = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    Visible = false,
+    Parent = sunLayer,
+}) :: Frame
+
+local flareElements: { Frame } = {}
+
+for index, data in {
+    { 0.18, 20, Color3.fromRGB(255, 195, 108), 0.55 },
+    { 0.34, 42, Color3.fromRGB(84, 191, 255), 0.72 },
+    { 0.52, 16, Color3.fromRGB(255, 114, 88), 0.63 },
+    { 0.72, 58, Color3.fromRGB(109, 124, 255), 0.79 },
+    { 0.9, 26, Color3.fromRGB(255, 210, 135), 0.66 },
+} do
+    local element = new("Frame", {
+        Name = `Flare_{index}`,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Size = UDim2.fromOffset(data[2], data[2]),
+        BackgroundColor3 = data[3],
+        BackgroundTransparency = data[4],
+        BorderSizePixel = 0,
+        Parent = flareRoot,
+    }) :: Frame
+
+    round(element, 999)
+    table.insert(flareElements, element)
+end
+
+rebuildScreenRays()
+
+--==============================================================
+-- ÁGUA PERSONALIZADA
+--==============================================================
+
+local function createFoam(part: BasePart): SurfaceGui
+    local surface = new("SurfaceGui", {
+        Name = "KalebFoam",
+        Face = Enum.NormalId.Top,
+        AlwaysOnTop = false,
+        LightInfluence = 0.25,
+        PixelsPerStud = 8,
+        SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud,
+        Enabled = state.FoamEnabled,
+        Parent = part,
+    }) :: SurfaceGui
+
+    local foam = new("Frame", {
+        Name = "Foam",
+        Size = UDim2.fromScale(1, 1),
+        BackgroundColor3 = Color3.fromRGB(220, 247, 255),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Parent = surface,
+    }) :: Frame
+
+    new("UIGradient", {
+        Rotation = math.random(0, 359),
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1),
+            NumberSequenceKeypoint.new(0.35, 0.92),
+            NumberSequenceKeypoint.new(0.52, 0.25),
+            NumberSequenceKeypoint.new(0.67, 0.88),
+            NumberSequenceKeypoint.new(1, 1),
+        }),
+        Parent = foam,
+    })
+
+    return surface
+end
+
+local function registerOcean(instance: Instance)
+    if not instance:IsA("BasePart") or oceanParts[instance] then
+        return
+    end
+
+    if table.getn(CollectionService:GetTagged("KalebOcean"))
+        > state.MaxOceanParts
+    then
+        return
+    end
+
+    instance.Anchored = true
+    instance.CanCollide = false
+    instance.CastShadow = false
+    instance.Material = Enum.Material.Glass
+
+    oceanParts[instance] = {
+        BaseCFrame = instance.CFrame,
+        BaseColor = instance.Color,
+        BaseTransparency = instance.Transparency,
+        Seed = math.random() * 1000,
+        Foam = createFoam(instance),
+    }
+end
+
+local function unregisterOcean(instance: Instance)
+    if not instance:IsA("BasePart") then
+        return
+    end
+
+    local record = oceanParts[instance]
+    if record then
+        instance.CFrame = record.BaseCFrame
+        instance.Color = record.BaseColor
+        instance.Transparency = record.BaseTransparency
+
+        if record.Foam then
+            record.Foam:Destroy()
+        end
+    end
+
+    oceanParts[instance] = nil
+end
+
+local function registerWind(instance: Instance)
+    if not instance:IsA("BasePart") or windParts[instance] then
+        return
+    end
+
+    if table.getn(CollectionService:GetTagged("KalebWind"))
+        > state.MaxWindParts
+    then
+        return
+    end
+
+    windParts[instance] = {
+        BaseCFrame = instance.CFrame,
+        Seed = math.random() * 1000,
+    }
+end
+
+local function unregisterWind(instance: Instance)
+    if not instance:IsA("BasePart") then
+        return
+    end
+
+    local record = windParts[instance]
+    if record then
+        instance.CFrame = record.BaseCFrame
+    end
+
+    windParts[instance] = nil
+end
+
+for _, instance in CollectionService:GetTagged("KalebOcean") do
+    registerOcean(instance)
+end
+
+for _, instance in CollectionService:GetTagged("KalebWind") do
+    registerWind(instance)
+end
+
+connect(
+    CollectionService:GetInstanceAddedSignal("KalebOcean"),
+    registerOcean
+)
+connect(
+    CollectionService:GetInstanceRemovedSignal("KalebOcean"),
+    unregisterOcean
+)
+connect(
+    CollectionService:GetInstanceAddedSignal("KalebWind"),
+    registerWind
+)
+connect(
+    CollectionService:GetInstanceRemovedSignal("KalebWind"),
+    unregisterWind
+)
+
+--==============================================================
+-- APLICAÇÃO DOS EFEITOS
+--==============================================================
+
+local function updateLighting()
+    if not state.MasterEnabled then
+        return
+    end
+
+    Lighting.GlobalShadows = true
+    Lighting.Brightness = state.Brightness
+    Lighting.ClockTime = state.ClockTime
+    Lighting.ExposureCompensation = state.Exposure
+    Lighting.GeographicLatitude = state.GeographicLatitude
+    Lighting.ShadowSoftness = state.ShadowSoftness
+    Lighting.EnvironmentDiffuseScale = state.EnvironmentDiffuse
+    Lighting.EnvironmentSpecularScale = state.EnvironmentSpecular
+
+    colorCorrection.Enabled = true
+    colorCorrection.Brightness = state.ColorBrightness
+    colorCorrection.Contrast = state.Contrast
+    colorCorrection.Saturation = state.Saturation
+    colorCorrection.TintColor = state.Tint
+
+    bloom.Enabled = state.BloomEnabled
+    bloom.Intensity = state.BloomIntensity
+    bloom.Size = state.BloomSize
+    bloom.Threshold = state.BloomThreshold
+
+    atmosphere.Density = state.AtmosphereEnabled
+        and state.AtmosphereDensity
+        or 0
+    atmosphere.Offset = state.AtmosphereOffset
+    atmosphere.Haze = state.AtmosphereEnabled
+        and state.AtmosphereHaze
+        or 0
+    atmosphere.Glare = state.AtmosphereEnabled
+        and state.AtmosphereGlare
+        or 0
+    atmosphere.Color = state.AtmosphereColor
+    atmosphere.Decay = state.AtmosphereDecay
+
+    sunRays.Enabled = state.SunRaysEnabled
+    sunRays.Intensity = state.SunRaysIntensity
+    sunRays.Spread = state.SunRaysSpread
+
+    depthOfField.Enabled = state.DepthOfFieldEnabled
+    depthOfField.FarIntensity = state.DOFFarIntensity
+    depthOfField.NearIntensity = state.DOFNearIntensity
+    depthOfField.FocusDistance = state.DOFFocusDistance
+    depthOfField.InFocusRadius = state.DOFInFocusRadius
+end
+
+local function updateWater()
+    if not state.MasterEnabled then
+        return
+    end
+
+    terrain.WaterColor = state.WaterColor
+    terrain.WaterTransparency = state.TerrainWaterEnabled
+        and state.WaterTransparency
+        or 1
+    terrain.WaterReflectance = state.WaterReflectance
+    terrain.WaterWaveSize = state.TerrainWaterEnabled
+        and state.WaterWaveSize
+        or 0
+    terrain.WaterWaveSpeed = state.TerrainWaterEnabled
+        and state.WaterWaveSpeed
+        or 0
+
+    for part, record in oceanParts do
+        if part.Parent then
+            part.Transparency = state.CustomOceanEnabled
+                and state.OceanTransparency
+                or 1
+            part.Color = state.OceanBaseColor
+
+            if record.Foam then
+                record.Foam.Enabled =
+                    state.CustomOceanEnabled and state.FoamEnabled
+            end
+        end
+    end
+end
+
+local function updateSunAppearance()
+    sunRoot.Size = UDim2.fromOffset(state.SunSize, state.SunSize)
+    sunDisk.BackgroundColor3 = state.SunColor
+    sunDisk.BackgroundTransparency = 1 - state.SunOpacity
+    sunHalo.BackgroundColor3 = state.SunColor
+    sunHalo.Size = UDim2.fromScale(
+        state.SunHaloSize,
+        state.SunHaloSize
+    )
+    sunHalo.BackgroundTransparency = 1 - state.SunHaloOpacity
+
+    diskGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 245)),
+        ColorSequenceKeypoint.new(0.58, state.SunColor),
+        ColorSequenceKeypoint.new(1, state.SunEdgeColor),
+    })
+
+    raysRoot.Visible = state.ScreenRaysEnabled
+    flareRoot.Visible = state.LensFlareEnabled
+
+    rebuildScreenRays()
+end
+
+local function restoreOriginal()
+    Lighting.Brightness = original.Brightness
+    Lighting.ClockTime = original.ClockTime
+    Lighting.ExposureCompensation = original.Exposure
+    Lighting.GeographicLatitude = original.GeographicLatitude
+    Lighting.Ambient = original.Ambient
+    Lighting.OutdoorAmbient = original.OutdoorAmbient
+    Lighting.ShadowSoftness = original.ShadowSoftness
+    Lighting.GlobalShadows = original.GlobalShadows
+    Lighting.EnvironmentDiffuseScale = original.EnvironmentDiffuseScale
+    Lighting.EnvironmentSpecularScale = original.EnvironmentSpecularScale
+
+    terrain.WaterColor = original.WaterColor
+    terrain.WaterTransparency = original.WaterTransparency
+    terrain.WaterReflectance = original.WaterReflectance
+    terrain.WaterWaveSize = original.WaterWaveSize
+    terrain.WaterWaveSpeed = original.WaterWaveSpeed
+
+    Workspace.GlobalWind = original.GlobalWind
+
+    colorCorrection.Enabled = false
+    bloom.Enabled = false
+    sunRays.Enabled = false
+    depthOfField.Enabled = false
+
+    sunRoot.Visible = false
+    flareRoot.Visible = false
+
+    for part, record in oceanParts do
+        if part.Parent then
+            part.CFrame = record.BaseCFrame
+            part.Color = record.BaseColor
+            part.Transparency = record.BaseTransparency
+        end
+    end
+
+    for part, record in windParts do
+        if part.Parent then
+            part.CFrame = record.BaseCFrame
+        end
+    end
+end
+
+local function setMasterEnabled(enabled: boolean)
+    state.MasterEnabled = enabled
+
+    if enabled then
+        updateLighting()
+        updateWater()
+        updateSunAppearance()
+    else
+        restoreOriginal()
+    end
+end
+
+local function applyPreset(name: string)
+    local preset = CONFIG.Presets[name]
+    if not preset then
+        return
+    end
+
+    activePreset = name
+
+    for key, value in preset do
+        (state :: any)[key] = value
+    end
+
+    updateLighting()
+    updateWater()
+    updateSunAppearance()
+end
+
+--==============================================================
+-- INTERFACE
+--==============================================================
+
+local previousGui = playerGui:FindFirstChild("KalebShadersUltraUI")
+if previousGui then
+    previousGui:Destroy()
+end
+
+local gui = new("ScreenGui", {
+    Name = "KalebShadersUltraUI",
+    ResetOnSpawn = false,
+    IgnoreGuiInset = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    DisplayOrder = 100,
+    Parent = playerGui,
+}) :: ScreenGui
+
+local main = new("Frame", {
+    Name = "Window",
+    Position = UDim2.fromOffset(28, 80),
+    Size = UDim2.fromOffset(410, 590),
+    BackgroundColor3 = CONFIG.Theme.Background,
+    BorderSizePixel = 0,
+    ClipsDescendants = true,
+    Parent = gui,
+}) :: Frame
+round(main, 15)
+outline(main, Color3.fromRGB(66, 74, 99), 0.22)
+
+local accentBar = new("Frame", {
+    Size = UDim2.new(1, 0, 0, 4),
+    BackgroundColor3 = CONFIG.Theme.Accent,
+    BorderSizePixel = 0,
+    Parent = main,
+}) :: Frame
+
+new("UIGradient", {
+    Color = ColorSequence.new(
+        CONFIG.Theme.Accent,
+        CONFIG.Theme.Accent2
+    ),
+    Parent = accentBar,
+})
+
+local header = new("Frame", {
+    Position = UDim2.fromOffset(0, 4),
+    Size = UDim2.new(1, 0, 0, 68),
+    BackgroundTransparency = 1,
+    Active = true,
+    Parent = main,
+}) :: Frame
+
+new("TextLabel", {
+    Position = UDim2.fromOffset(18, 9),
+    Size = UDim2.new(1, -75, 0, 28),
+    BackgroundTransparency = 1,
+    Text = CONFIG.Name,
+    TextColor3 = CONFIG.Theme.Text,
+    TextSize = 21,
+    Font = Enum.Font.GothamBold,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = header,
+})
+
+local statusLabel = new("TextLabel", {
+    Position = UDim2.fromOffset(18, 37),
+    Size = UDim2.new(1, -75, 0, 18),
+    BackgroundTransparency = 1,
+    Text = "B abre/fecha | arraste o cabeçalho",
+    TextColor3 = CONFIG.Theme.Muted,
+    TextSize = 11,
+    Font = Enum.Font.Gotham,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = header,
+}) :: TextLabel
+
+local closeButton = new("TextButton", {
+    Position = UDim2.new(1, -48, 0, 12),
+    Size = UDim2.fromOffset(32, 32),
+    BackgroundColor3 = CONFIG.Theme.Panel,
+    BorderSizePixel = 0,
+    Text = "×",
+    TextColor3 = CONFIG.Theme.Text,
+    TextSize = 21,
+    Font = Enum.Font.GothamBold,
+    AutoButtonColor = false,
+    Parent = header,
+}) :: TextButton
+round(closeButton, 8)
+
+local content = new("ScrollingFrame", {
+    Position = UDim2.fromOffset(13, 73),
+    Size = UDim2.new(1, -26, 1, -86),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 3,
+    ScrollBarImageColor3 = CONFIG.Theme.Accent,
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    CanvasSize = UDim2.new(),
+    Parent = main,
+}) :: ScrollingFrame
+
+new("UIListLayout", {
+    Padding = UDim.new(0, 8),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = content,
+})
+
+new("UIPadding", {
+    PaddingRight = UDim.new(0, 5),
+    Parent = content,
+})
+
+local controls: { any } = {}
+
+local function makeSection(text: string)
+    new("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 25),
+        BackgroundTransparency = 1,
+        Text = string.upper(text),
+        TextColor3 = CONFIG.Theme.Muted,
+        TextSize = 11,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = content,
+    })
+end
+
+local function makeRow(height: number): Frame
+    local row = new("Frame", {
+        Size = UDim2.new(1, 0, 0, height),
+        BackgroundColor3 = CONFIG.Theme.Panel,
+        BorderSizePixel = 0,
+        Parent = content,
+    }) :: Frame
+
+    round(row, 9)
+    return row
+end
+
+local function makeToggle(
+    text: string,
+    initial: boolean,
+    callback: (boolean) -> ()
+)
+    local value = initial
+    local row = makeRow(46)
+
+    new("TextLabel", {
+        Position = UDim2.fromOffset(13, 0),
+        Size = UDim2.new(1, -75, 1, 0),
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = CONFIG.Theme.Text,
+        TextSize = 13,
+        Font = Enum.Font.GothamMedium,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = row,
+    })
+
+    local switch = new("TextButton", {
+        Position = UDim2.new(1, -57, 0.5, -13),
+        Size = UDim2.fromOffset(43, 26),
+        BackgroundColor3 = value
+            and CONFIG.Theme.Accent
+            or CONFIG.Theme.Disabled,
+        BorderSizePixel = 0,
+        Text = "",
+        AutoButtonColor = false,
+        Parent = row,
+    }) :: TextButton
+    round(switch, 13)
+
+    local knob = new("Frame", {
+        Position = value
+            and UDim2.fromOffset(20, 3)
+            or UDim2.fromOffset(3, 3),
+        Size = UDim2.fromOffset(20, 20),
+        BackgroundColor3 = CONFIG.Theme.Text,
+        BorderSizePixel = 0,
+        Parent = switch,
+    }) :: Frame
+    round(knob, 10)
+
+    local function render()
+        animate(switch, {
+            BackgroundColor3 = value
+                and CONFIG.Theme.Accent
+                or CONFIG.Theme.Disabled,
+        })
+
+        animate(knob, {
+            Position = value
+                and UDim2.fromOffset(20, 3)
+                or UDim2.fromOffset(3, 3),
+        })
+    end
+
+    connect(switch.Activated, function()
+        value = not value
+        render()
+        callback(value)
+    end)
+
+    local control = {
+        Set = function(newValue: boolean)
+            value = newValue
+            render()
+        end,
+    }
+
+    table.insert(controls, control)
+    return control
+end
+
+local function makeSlider(
+    text: string,
+    minimum: number,
+    maximum: number,
+    initial: number,
+    decimals: number,
+    callback: (number) -> ()
+)
+    local row = makeRow(66)
+    local value = math.clamp(initial, minimum, maximum)
+    local dragging = false
+
+    new("TextLabel", {
+        Position = UDim2.fromOffset(13, 7),
+        Size = UDim2.new(1, -95, 0, 20),
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = CONFIG.Theme.Text,
+        TextSize = 13,
+        Font = Enum.Font.GothamMedium,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = row,
+    })
+
+    local valueLabel = new("TextLabel", {
+        Position = UDim2.new(1, -87, 0, 7),
+        Size = UDim2.fromOffset(73, 20),
+        BackgroundTransparency = 1,
+        TextColor3 = CONFIG.Theme.Accent2,
+        TextSize = 12,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Right,
+        Parent = row,
+    }) :: TextLabel
+
+    local bar = new("Frame", {
+        Position = UDim2.fromOffset(13, 42),
+        Size = UDim2.new(1, -26, 0, 7),
+        BackgroundColor3 = Color3.fromRGB(51, 57, 72),
+        BorderSizePixel = 0,
+        Active = true,
+        Parent = row,
+    }) :: Frame
+    round(bar, 4)
+
+    local fill = new("Frame", {
+        Size = UDim2.fromScale(0, 1),
+        BackgroundColor3 = CONFIG.Theme.Accent,
+        BorderSizePixel = 0,
+        Parent = bar,
+    }) :: Frame
+    round(fill, 4)
+
+    local knob = new("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0, 0.5),
+        Size = UDim2.fromOffset(15, 15),
+        BackgroundColor3 = CONFIG.Theme.Text,
+        BorderSizePixel = 0,
+        Parent = bar,
+    }) :: Frame
+    round(knob, 8)
+
+    local function render()
+        local alpha = (value - minimum) / (maximum - minimum)
+        fill.Size = UDim2.fromScale(alpha, 1)
+        knob.Position = UDim2.fromScale(alpha, 0.5)
+        valueLabel.Text = string.format("%." .. decimals .. "f", value)
+    end
+
+    local function setValue(newValue: number, runCallback: boolean?)
+        local precision = 10 ^ decimals
+        value = math.clamp(newValue, minimum, maximum)
+        value = math.round(value * precision) / precision
+        render()
+
+        if runCallback ~= false then
+            callback(value)
+        end
+    end
+
+    local function setFromX(x: number)
+        if bar.AbsoluteSize.X <= 0 then
+            return
+        end
+
+        local alpha = math.clamp(
+            (x - bar.AbsolutePosition.X) / bar.AbsoluteSize.X,
+            0,
+            1
+        )
+
+        setValue(minimum + (maximum - minimum) * alpha)
+    end
+
+    connect(bar.InputBegan, function(input: InputObject)
         if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
+            or input.UserInputType == Enum.UserInputType.Touch
+        then
             dragging = true
-            update(input.Position.X)
+            setFromX(input.Position.X)
         end
     end)
 
-    UserInputService.InputChanged:Connect(function(input)
+    connect(UserInputService.InputChanged, function(input: InputObject)
         if dragging and (
             input.UserInputType == Enum.UserInputType.MouseMovement
             or input.UserInputType == Enum.UserInputType.Touch
         ) then
-            update(input.Position.X)
+            setFromX(input.Position.X)
         end
     end)
 
-    UserInputService.InputEnded:Connect(function(input)
+    connect(UserInputService.InputEnded, function(input: InputObject)
         if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
+            or input.UserInputType == Enum.UserInputType.Touch
+        then
             dragging = false
         end
     end)
+
+    render()
+
+    local control = { Set = setValue }
+    table.insert(controls, control)
+    return control
 end
 
---========================================================--
--- MENU CONTENT
---========================================================--
+local function makeButton(
+    text: string,
+    callback: () -> (),
+    danger: boolean?
+)
+    local button = new("TextButton", {
+        Size = UDim2.new(1, 0, 0, 42),
+        BackgroundColor3 = danger
+            and CONFIG.Theme.Danger
+            or CONFIG.Theme.Panel,
+        BorderSizePixel = 0,
+        Text = text,
+        TextColor3 = CONFIG.Theme.Text,
+        TextSize = 13,
+        Font = Enum.Font.GothamMedium,
+        AutoButtonColor = false,
+        Parent = content,
+    }) :: TextButton
 
-Section("LIGHTING PRESETS")
+    round(button, 9)
 
-for name in pairs(Presets) do
-    Button("✦  " .. name, function()
-        CONFIG.Preset = name
-        ApplyLighting()
+    connect(button.MouseEnter, function()
+        animate(button, {
+            BackgroundColor3 = danger
+                and Color3.fromRGB(255, 101, 120)
+                or CONFIG.Theme.PanelHover,
+        }, 0.12)
+    end)
+
+    connect(button.MouseLeave, function()
+        animate(button, {
+            BackgroundColor3 = danger
+                and CONFIG.Theme.Danger
+                or CONFIG.Theme.Panel,
+        }, 0.12)
+    end)
+
+    connect(button.Activated, callback)
+end
+
+--==============================================================
+-- CONTROLES: GERAL E PRESETS
+--==============================================================
+
+makeSection("Geral")
+
+makeToggle("Ativar Kaleb Shaders", state.MasterEnabled, function(value)
+    setMasterEnabled(value)
+end)
+
+makeSection("Presets")
+
+for _, presetName in {
+    "Cinematic",
+    "Tropical",
+    "Sunset",
+    "Storm",
+    "Night",
+} do
+    makeButton(presetName, function()
+        applyPreset(presetName)
+        statusLabel.Text = `Preset ativo: {presetName}`
     end)
 end
 
-Section("SUN & CINEMATIC LIGHT")
+--==============================================================
+-- CONTROLES: ILUMINAÇÃO
+--==============================================================
 
-Slider("Sun Rays", 0, 0.5, CONFIG.SunIntensity, function(v)
-    CONFIG.SunIntensity = v
-    Rays.Intensity = v
+makeSection("Iluminação")
+
+makeSlider("Horário", 0, 24, state.ClockTime, 2, function(value)
+    state.ClockTime = value
+    updateLighting()
 end)
 
-Slider("Bloom", 0, 1, CONFIG.BloomIntensity, function(v)
-    CONFIG.BloomIntensity = v
-    Bloom.Intensity = v
+makeSlider("Brilho", 0, 6, state.Brightness, 2, function(value)
+    state.Brightness = value
+    updateLighting()
 end)
 
-Section("WATER • WIND SIMULATION")
+makeSlider("Exposição", -3, 3, state.Exposure, 2, function(value)
+    state.Exposure = value
+    updateLighting()
+end)
 
-Button("🌊  WATER: ON / OFF", function()
-    CONFIG.WaterEnabled = not CONFIG.WaterEnabled
-
-    if CONFIG.WaterEnabled then
-        ApplyWater()
-    else
-        Terrain.WaterWaveSize = 0
-        Terrain.WaterWaveSpeed = 0
+makeSlider(
+    "Latitude solar",
+    -90,
+    90,
+    state.GeographicLatitude,
+    0,
+    function(value)
+        state.GeographicLatitude = value
+        updateLighting()
     end
-end)
+)
 
-Slider("Wave Size", 0, 1, CONFIG.WaterWaveSize, function(v)
-    CONFIG.WaterWaveSize = v
-    Terrain.WaterWaveSize = v
-end)
-
-Slider("Wind Speed", 0, 25, CONFIG.WaterWaveSpeed, function(v)
-    CONFIG.WaterWaveSpeed = v
-    Terrain.WaterWaveSpeed = v
-end)
-
-Slider("Water Transparency", 0, 1, CONFIG.WaterTransparency, function(v)
-    CONFIG.WaterTransparency = v
-    Terrain.WaterTransparency = v
-end)
-
-Slider("Water Reflection", 0, 1, CONFIG.WaterReflectance, function(v)
-    CONFIG.WaterReflectance = v
-    Terrain.WaterReflectance = v
-end)
-
-Section("SYSTEM")
-
-Button("⚡  ENABLE / DISABLE SHADERS", function()
-    CONFIG.Enabled = not CONFIG.Enabled
-
-    if CONFIG.Enabled then
-        ApplyLighting()
-    else
-        for _, effect in pairs(Effects) do
-            effect.Enabled = false
-        end
+makeSlider(
+    "Suavidade das sombras",
+    0,
+    1,
+    state.ShadowSoftness,
+    2,
+    function(value)
+        state.ShadowSoftness = value
+        updateLighting()
     end
+)
+
+makeSlider(
+    "Luz difusa",
+    0,
+    1,
+    state.EnvironmentDiffuse,
+    2,
+    function(value)
+        state.EnvironmentDiffuse = value
+        updateLighting()
+    end
+)
+
+makeSlider(
+    "Reflexo ambiente",
+    0,
+    1,
+    state.EnvironmentSpecular,
+    2,
+    function(value)
+        state.EnvironmentSpecular = value
+        updateLighting()
+    end
+)
+
+makeSection("Cor")
+
+makeSlider(
+    "Contraste",
+    -1,
+    1,
+    state.Contrast,
+    2,
+    function(value)
+        state.Contrast = value
+        updateLighting()
+    end
+)
+
+makeSlider(
+    "Saturação",
+    -1,
+    1,
+    state.Saturation,
+    2,
+    function(value)
+        state.Saturation = value
+        updateLighting()
+    end
+)
+
+makeSlider(
+    "Brilho de cor",
+    -1,
+    1,
+    state.ColorBrightness,
+    2,
+    function(value)
+        state.ColorBrightness = value
+        updateLighting()
+    end
+)
+
+--==============================================================
+-- CONTROLES: SOL E RAIOS
+--==============================================================
+
+makeSection("Sol visual")
+
+makeToggle("Mostrar sol visual", state.VisualSunEnabled, function(value)
+    state.VisualSunEnabled = value
+    updateSunAppearance()
 end)
 
-Button("↺  RESTORE ORIGINAL SETTINGS", function()
-    Lighting.ClockTime = Original.ClockTime
-    Lighting.Brightness = Original.Brightness
-    Lighting.ExposureCompensation = Original.Exposure
-    Lighting.Ambient = Original.Ambient
-    Lighting.OutdoorAmbient = Original.OutdoorAmbient
-    Lighting.GlobalShadows = Original.GlobalShadows
+makeToggle("Mostrar sol nativo", state.NativeSunEnabled, function(value)
+    state.NativeSunEnabled = value
+end)
 
-    Terrain.WaterWaveSize = Original.WaterWaveSize
-    Terrain.WaterWaveSpeed = Original.WaterWaveSpeed
-    Terrain.WaterTransparency = Original.WaterTransparency
-    Terrain.WaterReflectance = Original.WaterReflectance
-    Terrain.WaterColor = Original.WaterColor
+makeSlider("Tamanho do sol", 35, 400, state.SunSize, 0, function(value)
+    state.SunSize = value
+    updateSunAppearance()
+end)
 
-    for _, effect in pairs(Effects) do
-        effect:Destroy()
+makeSlider("Opacidade do sol", 0, 1, state.SunOpacity, 2, function(value)
+    state.SunOpacity = value
+    updateSunAppearance()
+end)
+
+makeSlider("Tamanho do halo", 1, 8, state.SunHaloSize, 2, function(value)
+    state.SunHaloSize = value
+    updateSunAppearance()
+end)
+
+makeSlider(
+    "Opacidade do halo",
+    0,
+    1,
+    state.SunHaloOpacity,
+    2,
+    function(value)
+        state.SunHaloOpacity = value
+        updateSunAppearance()
+    end
+)
+
+makeSection("Raios solares")
+
+makeToggle("Raios nativos", state.SunRaysEnabled, function(value)
+    state.SunRaysEnabled = value
+    updateLighting()
+end)
+
+makeSlider(
+    "Intensidade dos raios",
+    0,
+    1,
+    state.SunRaysIntensity,
+    2,
+    function(value)
+        state.SunRaysIntensity = value
+        updateLighting()
+    end
+)
+
+makeSlider(
+    "Abertura dos raios",
+    0,
+    1,
+    state.SunRaysSpread,
+    2,
+    function(value)
+        state.SunRaysSpread = value
+        updateLighting()
+    end
+)
+
+makeToggle("Raios visuais", state.ScreenRaysEnabled, function(value)
+    state.ScreenRaysEnabled = value
+    updateSunAppearance()
+end)
+
+makeSlider(
+    "Opacidade visual",
+    0,
+    1,
+    state.ScreenRaysOpacity,
+    2,
+    function(value)
+        state.ScreenRaysOpacity = value
+        updateSunAppearance()
+    end
+)
+
+makeSlider(
+    "Comprimento visual",
+    0.2,
+    3,
+    state.ScreenRaysLength,
+    2,
+    function(value)
+        state.ScreenRaysLength = value
+        updateSunAppearance()
+    end
+)
+
+makeSlider(
+    "Quantidade de raios",
+    4,
+    28,
+    state.ScreenRaysCount,
+    0,
+    function(value)
+        state.ScreenRaysCount = value
+        rebuildScreenRays()
+    end
+)
+
+makeSlider(
+    "Rotação dos raios",
+    -5,
+    5,
+    state.ScreenRaysRotationSpeed,
+    2,
+    function(value)
+        state.ScreenRaysRotationSpeed = value
+    end
+)
+
+makeToggle("Lens flare", state.LensFlareEnabled, function(value)
+    state.LensFlareEnabled = value
+    updateSunAppearance()
+end)
+
+makeSlider(
+    "Intensidade do flare",
+    0,
+    1,
+    state.LensFlareIntensity,
+    2,
+    function(value)
+        state.LensFlareIntensity = value
+    end
+)
+
+--==============================================================
+-- CONTROLES: ATMOSFERA E BLOOM
+--==============================================================
+
+makeSection("Atmosfera")
+
+makeToggle("Ativar atmosfera", state.AtmosphereEnabled, function(value)
+    state.AtmosphereEnabled = value
+    updateLighting()
+end)
+
+makeSlider(
+    "Densidade",
+    0,
+    1,
+    state.AtmosphereDensity,
+    2,
+    function(value)
+        state.AtmosphereDensity = value
+        updateLighting()
+    end
+)
+
+makeSlider(
+    "Neblina",
+    0,
+    10,
+    state.AtmosphereHaze,
+    2,
+    function(value)
+        state.AtmosphereHaze = value
+        updateLighting()
+    end
+)
+
+makeSlider(
+    "Brilho atmosférico",
+    0,
+    10,
+    state.AtmosphereGlare,
+    2,
+    function(value)
+        state.AtmosphereGlare = value
+        updateLighting()
+    end
+)
+
+makeSlider(
+    "Deslocamento atmosférico",
+    -1,
+    1,
+    state.AtmosphereOffset,
+    2,
+    function(value)
+        state.AtmosphereOffset = value
+        updateLighting()
+    end
+)
+
+makeSection("Bloom")
+
+makeToggle("Ativar bloom", state.BloomEnabled, function(value)
+    state.BloomEnabled = value
+    updateLighting()
+end)
+
+makeSlider(
+    "Intensidade do bloom",
+    0,
+    5,
+    state.BloomIntensity,
+    2,
+    function(value)
+        state.BloomIntensity = value
+        updateLighting()
+    end
+)
+
+makeSlider("Tamanho do bloom", 0, 56, state.BloomSize, 0, function(value)
+    state.BloomSize = value
+    updateLighting()
+end)
+
+makeSlider(
+    "Limite do bloom",
+    0,
+    5,
+    state.BloomThreshold,
+    2,
+    function(value)
+        state.BloomThreshold = value
+        updateLighting()
+    end
+)
+
+--==============================================================
+-- CONTROLES: ÁGUA
+--==============================================================
+
+makeSection("Água nativa")
+
+makeToggle("Água do Terrain", state.TerrainWaterEnabled, function(value)
+    state.TerrainWaterEnabled = value
+    updateWater()
+end)
+
+makeSlider(
+    "Transparência da água",
+    0,
+    1,
+    state.WaterTransparency,
+    2,
+    function(value)
+        state.WaterTransparency = value
+        updateWater()
+    end
+)
+
+makeSlider(
+    "Reflexo da água",
+    0,
+    1,
+    state.WaterReflectance,
+    2,
+    function(value)
+        state.WaterReflectance = value
+        updateWater()
+    end
+)
+
+makeSlider(
+    "Tamanho da onda nativa",
+    0,
+    1,
+    state.WaterWaveSize,
+    2,
+    function(value)
+        state.WaterWaveSize = value
+        updateWater()
+    end
+)
+
+makeSlider(
+    "Velocidade nativa",
+    0,
+    100,
+    state.WaterWaveSpeed,
+    1,
+    function(value)
+        state.WaterWaveSpeed = value
+        updateWater()
+    end
+)
+
+makeSection("Oceano Gerstner")
+
+makeToggle(
+    "Ativar oceano personalizado",
+    state.CustomOceanEnabled,
+    function(value)
+        state.CustomOceanEnabled = value
+        updateWater()
+    end
+)
+
+makeSlider(
+    "Transparência do oceano",
+    0,
+    1,
+    state.OceanTransparency,
+    2,
+    function(value)
+        state.OceanTransparency = value
+        updateWater()
+    end
+)
+
+makeSlider("Altura", 0, 5, state.WaveHeight, 2, function(value)
+    state.WaveHeight = value
+end)
+
+makeSlider("Comprimento", 2, 100, state.WaveLength, 1, function(value)
+    state.WaveLength = value
+end)
+
+makeSlider("Velocidade", 0, 30, state.WaveSpeed, 2, function(value)
+    state.WaveSpeed = value
+end)
+
+makeSlider(
+    "Inclinação",
+    0,
+    1,
+    state.WaveSteepness,
+    2,
+    function(value)
+        state.WaveSteepness = value
+    end
+)
+
+makeSlider("Direção", 0, 360, state.WaveDirection, 0, function(value)
+    state.WaveDirection = value
+end)
+
+makeSlider(
+    "Onda secundária",
+    0,
+    1,
+    state.SecondaryWaveStrength,
+    2,
+    function(value)
+        state.SecondaryWaveStrength = value
+    end
+)
+
+makeSlider(
+    "Ondas de detalhe",
+    0,
+    1,
+    state.DetailWaveStrength,
+    2,
+    function(value)
+        state.DetailWaveStrength = value
+    end
+)
+
+makeSlider(
+    "Ondas pontiagudas",
+    0,
+    1,
+    state.WaveChoppiness,
+    2,
+    function(value)
+        state.WaveChoppiness = value
+    end
+)
+
+makeSection("Espuma")
+
+makeToggle("Ativar espuma", state.FoamEnabled, function(value)
+    state.FoamEnabled = value
+    updateWater()
+end)
+
+makeSlider(
+    "Limiar da espuma",
+    0,
+    1,
+    state.FoamThreshold,
+    2,
+    function(value)
+        state.FoamThreshold = value
+    end
+)
+
+makeSlider(
+    "Opacidade da espuma",
+    0,
+    1,
+    state.FoamOpacity,
+    2,
+    function(value)
+        state.FoamOpacity = value
+    end
+)
+
+makeSlider("Escala da espuma", 0.2, 6, state.FoamScale, 2, function(value)
+    state.FoamScale = value
+end)
+
+makeSlider(
+    "Velocidade da espuma",
+    0,
+    3,
+    state.FoamSpeed,
+    2,
+    function(value)
+        state.FoamSpeed = value
+    end
+)
+
+--==============================================================
+-- CONTROLES: VENTO
+--==============================================================
+
+makeSection("Vento")
+
+makeToggle("Ativar vento", state.WindEnabled, function(value)
+    state.WindEnabled = value
+end)
+
+makeSlider("Direção do vento", 0, 360, state.WindDirection, 0, function(value)
+    state.WindDirection = value
+end)
+
+makeSlider("Velocidade do vento", 0, 100, state.WindSpeed, 1, function(value)
+    state.WindSpeed = value
+end)
+
+makeSlider("Força visual", 0, 3, state.WindStrength, 2, function(value)
+    state.WindStrength = value
+end)
+
+makeSlider("Turbulência", 0, 1, state.WindTurbulence, 2, function(value)
+    state.WindTurbulence = value
+end)
+
+makeSlider(
+    "Frequência de rajadas",
+    0,
+    2,
+    state.GustFrequency,
+    2,
+    function(value)
+        state.GustFrequency = value
+    end
+)
+
+--==============================================================
+-- CONTROLES: DESEMPENHO E AÇÕES
+--==============================================================
+
+makeSection("Desempenho")
+
+makeSlider(
+    "Distância de animação",
+    50,
+    2000,
+    state.AnimationDistance,
+    0,
+    function(value)
+        state.AnimationDistance = value
+    end
+)
+
+makeSlider(
+    "Atualizações por segundo",
+    10,
+    60,
+    state.UpdateRate,
+    0,
+    function(value)
+        state.UpdateRate = value
+    end
+)
+
+makeSection("Ações")
+
+makeButton("Aplicar configuração padrão", function()
+    for key, value in CONFIG.Defaults do
+        (state :: any)[key] = value
     end
 
-    GUI:Destroy()
+    activePreset = "Cinematic"
+    updateLighting()
+    updateWater()
+    updateSunAppearance()
+    statusLabel.Text = "Configuração padrão aplicada"
 end)
 
---========================================================--
--- DRAG SYSTEM
---========================================================--
+makeButton("Restaurar iluminação original", function()
+    state.MasterEnabled = false
+    restoreOriginal()
+    statusLabel.Text = "Iluminação original restaurada"
+end, true)
 
-local dragging = false
-local dragStart
-local startPosition
+--==============================================================
+-- MENU MÓVEL
+--==============================================================
 
-Header.InputBegan:Connect(function(input)
+local draggingMenu = false
+local dragStart = Vector2.zero
+local windowStart = Vector2.zero
+
+local function clampWindow(position: Vector2): UDim2
+    local camera = Workspace.CurrentCamera
+    if not camera then
+        return UDim2.fromOffset(position.X, position.Y)
+    end
+
+    local viewport = camera.ViewportSize
+    local size = main.AbsoluteSize
+
+    return UDim2.fromOffset(
+        math.clamp(position.X, 0, math.max(0, viewport.X - size.X)),
+        math.clamp(position.Y, 0, math.max(0, viewport.Y - size.Y))
+    )
+end
+
+connect(header.InputBegan, function(input: InputObject)
     if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-
-        dragging = true
+        or input.UserInputType == Enum.UserInputType.Touch
+    then
+        draggingMenu = true
         dragStart = input.Position
-        startPosition = Main.Position
+        windowStart = main.AbsolutePosition
     end
 end)
 
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and (
+connect(UserInputService.InputChanged, function(input: InputObject)
+    if draggingMenu and (
         input.UserInputType == Enum.UserInputType.MouseMovement
         or input.UserInputType == Enum.UserInputType.Touch
     ) then
-
-        local delta = input.Position - dragStart
-
-        Main.Position = UDim2.new(
-            startPosition.X.Scale,
-            startPosition.X.Offset + delta.X,
-            startPosition.Y.Scale,
-            startPosition.Y.Offset + delta.Y
+        main.Position = clampWindow(
+            windowStart + input.Position - dragStart
         )
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
+connect(UserInputService.InputEnded, function(input: InputObject)
     if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
+        or input.UserInputType == Enum.UserInputType.Touch
+    then
+        draggingMenu = false
     end
 end)
 
-local minimized = false
+--==============================================================
+-- ABRIR E FECHAR
+--==============================================================
 
-Minimize.MouseButton1Click:Connect(function()
-    minimized = not minimized
+local normalSize = main.Size
 
-    Content.Visible = not minimized
-    Main.Size = minimized
-        and UDim2.fromOffset(390, 75)
-        or UDim2.fromOffset(390, 490)
+local function setMenuOpen(open: boolean)
+    menuOpen = open
 
-    Minimize.Text = minimized and "+" or "—"
+    if open then
+        main.Visible = true
+        main.Size = UDim2.fromOffset(360, 540)
+        main.BackgroundTransparency = 0.15
+
+        animate(main, {
+            Size = normalSize,
+            BackgroundTransparency = 0,
+        }, 0.2)
+    else
+        animate(main, {
+            Size = UDim2.fromOffset(360, 540),
+            BackgroundTransparency = 1,
+        }, 0.15)
+
+        task.delay(0.15, function()
+            if alive and not menuOpen then
+                main.Visible = false
+            end
+        end)
+    end
+end
+
+connect(closeButton.Activated, function()
+    setMenuOpen(false)
 end)
 
---========================================================--
--- INITIALIZE
---========================================================--
+connect(UserInputService.InputBegan, function(
+    input: InputObject,
+    processed: boolean
+)
+    if processed or isTextInputFocused() then
+        return
+    end
 
-ApplyLighting()
-ApplyWater()
+    if input.KeyCode == CONFIG.ToggleKey then
+        setMenuOpen(not menuOpen)
+    end
+end)
 
-print("KALEB SHADERS X V3 INITIALIZED")
+--==============================================================
+-- MATEMÁTICA DAS ONDAS GERSTNER
+--==============================================================
+
+local TAU = math.pi * 2
+
+local function gerstnerWave(
+    position: Vector3,
+    direction: Vector3,
+    wavelength: number,
+    amplitude: number,
+    steepness: number,
+    speed: number,
+    time: number
+): (Vector3, Vector3, number)
+    local safeLength = math.max(wavelength, 0.01)
+    local waveNumber = TAU / safeLength
+    local phaseSpeed = math.sqrt(Workspace.Gravity / waveNumber)
+    local phase =
+        waveNumber * (
+            direction.X * position.X
+            + direction.Z * position.Z
+            - phaseSpeed * speed * time
+        )
+
+    local sine = math.sin(phase)
+    local cosine = math.cos(phase)
+    local horizontal = steepness * amplitude * cosine
+
+    local displacement = Vector3.new(
+        direction.X * horizontal,
+        amplitude * sine,
+        direction.Z * horizontal
+    )
+
+    local normal = Vector3.new(
+        -direction.X * waveNumber * amplitude * cosine,
+        1 - steepness * waveNumber * amplitude * sine,
+        -direction.Z * waveNumber * amplitude * cosine
+    ).Unit
+
+    return displacement, normal, sine
+end
+
+local function sampleOcean(
+    position: Vector3,
+    time: number
+): (Vector3, Vector3, number)
+    local primaryDirection = directionFromDegrees(state.WaveDirection)
+    local secondaryDirection =
+        directionFromDegrees(state.WaveDirection + 57)
+    local detailDirection =
+        directionFromDegrees(state.WaveDirection - 31)
+
+    local displacementA, normalA, crestA = gerstnerWave(
+        position,
+        primaryDirection,
+        state.WaveLength,
+        state.WaveHeight,
+        state.WaveSteepness,
+        state.WaveSpeed,
+        time
+    )
+
+    local displacementB, normalB, crestB = gerstnerWave(
+        position,
+        secondaryDirection,
+        state.WaveLength * 0.53,
+        state.WaveHeight * state.SecondaryWaveStrength,
+        state.WaveSteepness * 0.7,
+        state.WaveSpeed * 1.17,
+        time
+    )
+
+    local displacementC, normalC, crestC = gerstnerWave(
+        position,
+        detailDirection,
+        state.WaveLength * 0.21,
+        state.WaveHeight * state.DetailWaveStrength,
+        state.WaveSteepness * 0.45,
+        state.WaveSpeed * 1.65,
+        time
+    )
+
+    local displacement =
+        displacementA + displacementB + displacementC
+
+    displacement = Vector3.new(
+        displacement.X * state.WaveChoppiness,
+        displacement.Y,
+        displacement.Z * state.WaveChoppiness
+    )
+
+    local normal = (normalA + normalB + normalC).Unit
+    local crest = (
+        crestA
+        + crestB * state.SecondaryWaveStrength
+        + crestC * state.DetailWaveStrength
+    ) / (
+        1
+        + state.SecondaryWaveStrength
+        + state.DetailWaveStrength
+    )
+
+    return displacement, normal, crest
+end
+
+--==============================================================
+-- MOTOR DE ANIMAÇÃO
+--==============================================================
+
+local elapsed = 0
+local accumulated = 0
+local smoothedExposure = state.Exposure
+local sunRotation = 0
+
+local raycastParams = RaycastParams.new()
+raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+raycastParams.IgnoreWater = true
+
+local function updateVisualSun(deltaTime: number)
+    local camera = Workspace.CurrentCamera
+    if not camera then
+        sunRoot.Visible = false
+        return
+    end
+
+    -- Direção aproximada compatível com ClockTime e latitude.
+    local hourAngle = ((state.ClockTime - 12) / 24) * TAU
+    local latitude = math.rad(state.GeographicLatitude)
+
+    local sunDirection = Vector3.new(
+        math.sin(hourAngle),
+        math.cos(hourAngle) * math.cos(latitude),
+        -math.cos(hourAngle) * math.sin(latitude)
+    ).Unit
+
+    local worldPosition =
+        camera.CFrame.Position + sunDirection * 10000
+
+    local screenPoint, visible =
+        camera:WorldToViewportPoint(worldPosition)
+
+    local inFront = screenPoint.Z > 0
+    local shouldShow =
+        state.MasterEnabled
+        and state.VisualSunEnabled
+        and visible
+        and inFront
+
+    sunRoot.Visible = shouldShow
+    flareRoot.Visible =
+        shouldShow and state.LensFlareEnabled
+
+    if not shouldShow then
+        return
+    end
+
+    local viewport = camera.ViewportSize
+    local position = Vector2.new(screenPoint.X, screenPoint.Y)
+
+    sunRoot.Position = UDim2.fromOffset(position.X, position.Y)
+
+    sunRotation += deltaTime * state.ScreenRaysRotationSpeed
+    raysRoot.Rotation = sunRotation
+
+    local center = viewport / 2
+    local vectorToCenter = center - position
+
+    for index, element in flareElements do
+        local alpha = index / (#flareElements + 1)
+        local flarePosition =
+            position + vectorToCenter * (alpha * 1.45)
+
+        element.Position = UDim2.fromOffset(
+            flarePosition.X,
+            flarePosition.Y
+        )
+
+        element.BackgroundTransparency =
+            math.clamp(
+                1 - state.LensFlareIntensity
+                    + index * 0.035,
+                0,
+                1
+            )
+    end
+end
+
+local function updateOcean(time: number)
+    local camera = Workspace.CurrentCamera
+    if not camera then
+        return
+    end
+
+    for part, record in oceanParts do
+        if not part.Parent then
+            oceanParts[part] = nil
+            continue
+        end
+
+        if not state.CustomOceanEnabled
+            or distanceToCamera(record.BaseCFrame.Position)
+                > state.AnimationDistance
+        then
+            part.CFrame = record.BaseCFrame
+            continue
+        end
+
+        local displacement, normal, crest = sampleOcean(
+            record.BaseCFrame.Position,
+            time + record.Seed * 0.01
+        )
+
+        local up = normal
+        local forward = Vector3.new(0, 0, -1)
+
+        if math.abs(up:Dot(forward)) > 0.97 then
+            forward = Vector3.new(1, 0, 0)
+        end
+
+        local right = forward:Cross(up).Unit
+        local correctedForward = up:Cross(right).Unit
+
+        part.CFrame = CFrame.fromMatrix(
+            record.BaseCFrame.Position + displacement,
+            right,
+            up,
+            -correctedForward
+        )
+
+        local fresnel = math.clamp(
+            1 - math.abs(normal:Dot(
+                (camera.CFrame.Position - part.Position).Unit
+            )),
+            0,
+            1
+        )
+
+        local heightBlend = math.clamp(
+            (displacement.Y / math.max(state.WaveHeight, 0.01) + 1) / 2,
+            0,
+            1
+        )
+
+        local waterColor = state.OceanDeepColor:Lerp(
+            state.OceanBaseColor,
+            heightBlend
+        ):Lerp(
+            state.OceanShallowColor,
+            fresnel * 0.55
+        )
+
+        part.Color = waterColor
+        part.Transparency = math.clamp(
+            state.OceanTransparency - fresnel * 0.12,
+            0,
+            1
+        )
+
+        local foamAmount = math.clamp(
+            (crest - state.FoamThreshold)
+                / math.max(1 - state.FoamThreshold, 0.01),
+            0,
+            1
+        )
+
+        if record.Foam then
+            record.Foam.Enabled = state.FoamEnabled
+
+            local foamFrame =
+                record.Foam:FindFirstChild("Foam") :: Frame?
+
+            if foamFrame then
+                foamFrame.BackgroundTransparency =
+                    1 - foamAmount * state.FoamOpacity
+
+                local gradient =
+                    foamFrame:FindFirstChildOfClass("UIGradient")
+
+                if gradient then
+                    gradient.Offset = Vector2.new(
+                        (
+                            time
+                            * state.FoamSpeed
+                            + record.Seed
+                        ) % 2 - 1,
+                        math.sin(
+                            time * state.FoamSpeed
+                            + record.Seed
+                        ) * 0.15
+                    )
+                end
+            end
+        end
+    end
+end
+
+local function updateWind(time: number)
+    if not state.WindEnabled then
+        Workspace.GlobalWind = Vector3.zero
+
+        for part, record in windParts do
+            if part.Parent then
+                part.CFrame = record.BaseCFrame
+            end
+        end
+
+        return
+    end
+
+    local direction = directionFromDegrees(state.WindDirection)
+
+    local gustNoise = math.noise(
+        time * state.GustFrequency,
+        0,
+        0
+    )
+
+    local gustMultiplier =
+        1 + gustNoise * state.WindTurbulence
+
+    Workspace.GlobalWind = Vector3.new(
+        direction.X * state.WindSpeed * gustMultiplier,
+        state.WindVertical * math.max(0, gustNoise),
+        direction.Z * state.WindSpeed * gustMultiplier
+    )
+
+    for part, record in windParts do
+        if not part.Parent then
+            windParts[part] = nil
+            continue
+        end
+
+        if distanceToCamera(record.BaseCFrame.Position)
+            > state.AnimationDistance
+        then
+            part.CFrame = record.BaseCFrame
+            continue
+        end
+
+        local localNoise = math.noise(
+            record.BaseCFrame.Position.X * 0.03,
+            record.BaseCFrame.Position.Z * 0.03,
+            time * state.GustFrequency
+        )
+
+        local sway =
+            (
+                math.sin(
+                    time * state.WindSpeed * 0.18
+                    + record.Seed
+                ) * 0.7
+                + localNoise * state.WindTurbulence
+            )
+            * state.WindStrength
+            * gustMultiplier
+
+        part.CFrame =
+            record.BaseCFrame
+            * CFrame.Angles(
+                -direction.Z * sway * 0.13,
+                localNoise * 0.025,
+                direction.X * sway * 0.13
+            )
+    end
+end
+
+local function updateDynamicExposure(deltaTime: number)
+    if not state.DynamicExposure then
+        Lighting.ExposureCompensation = state.Exposure
+        smoothedExposure = state.Exposure
+        return
+    end
+
+    local camera = Workspace.CurrentCamera
+    if not camera then
+        return
+    end
+
+    local character = player.Character
+    raycastParams.FilterDescendantsInstances =
+        character and { character } or {}
+
+    local ceiling = Workspace:Raycast(
+        camera.CFrame.Position,
+        Vector3.new(0, 350, 0),
+        raycastParams
+    )
+
+    local target =
+        state.Exposure
+        + (
+            ceiling
+                and state.IndoorExposure
+                or state.OutdoorExposure
+        )
+
+    local alpha = 1 - math.exp(
+        -state.ExposureAdaptation * deltaTime
+    )
+
+    smoothedExposure +=
+        (target - smoothedExposure) * alpha
+
+    Lighting.ExposureCompensation = smoothedExposure
+end
+
+RunService:UnbindFromRenderStep("KalebShadersUltra")
+
+RunService:BindToRenderStep(
+    "KalebShadersUltra",
+    Enum.RenderPriority.Camera.Value + 2,
+    function(deltaTime: number)
+        if not alive or not state.MasterEnabled then
+            return
+        end
+
+        elapsed += deltaTime
+        accumulated += deltaTime
+
+        updateVisualSun(deltaTime)
+        updateDynamicExposure(deltaTime)
+
+        local interval = 1 / math.max(state.UpdateRate, 1)
+
+        if accumulated >= interval then
+            local step = accumulated
+            accumulated = 0
+
+            updateOcean(elapsed)
+            updateWind(elapsed)
+
+            -- Mantém o horário controlado pelo menu.
+            Lighting.ClockTime = state.ClockTime
+
+            -- O disco nativo não pode ser removido diretamente.
+            -- Desabilitá-lo reduz sua presença usando o horário noturno,
+            -- enquanto o sol visual continua independente.
+            if not state.NativeSunEnabled then
+                sunRays.Enabled = false
+            else
+                sunRays.Enabled = state.SunRaysEnabled
+            end
+        end
+    end
+)
+
+--==============================================================
+-- INICIALIZAÇÃO
+--==============================================================
+
+updateLighting()
+updateWater()
+updateSunAppearance()
+applyPreset(activePreset)
+
+print(
+    `{CONFIG.Name} iniciado. `
+    .. `{CONFIG.ToggleKey.Name} abre ou fecha o painel.`
+)
